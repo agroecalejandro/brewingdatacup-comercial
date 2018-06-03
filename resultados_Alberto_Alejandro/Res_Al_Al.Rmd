@@ -1,0 +1,159 @@
+---
+title: "Reto _comercial Alberto y Alejandro"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(factoextra)
+library(sp)
+library(raster)
+library(tmap)
+library(ggplot2)
+library(reshape2)
+
+dicc=readxl::read_xlsx("DemandForecast_Challenge.xlsx", 1)
+datos=readxl::read_xlsx("DemandForecast_Challenge.xlsx", 2)
+catal=readxl::read_xlsx("DemandForecast_Challenge.xlsx", 3)
+
+colnames(datos)[1]="date"
+colnames(datos)[2]="sub"
+colnames(datos)[4]="hecto"
+
+meto=read.csv("Metodologia.csv")
+sub_coords=read.csv("Datos_mapa.csv")
+sku=read.csv("meses_modelo.csv")
+
+```
+# Metodologia
+
+
+Metodologia
+
+1.  Exploración de datos mediante graficas de boxplot agrupando por diferentes factores 
+2.  Limpieza de datos
+3.  Analisis por SKU por subagencia. 
+4.  Predicción de las series de tiempo y agrupacion con cluster
+5.  Visualizacion de resultados
+
+### Tabla Resumen 
+
+```{r, echo=FALSE, results='asis'}
+    knitr::kable(head(meto,34),align = 'c',row.names = FALSE, digits = 3,format.args = list(justify = "centre"))
+
+```
+
+# Insights
+
+
+### Pronostico de hectolitros vendidospor subagencias
+
+```{r warning=FALSE, echo=FALSE, fig.width=20,fig.height=10}
+coordinates(sub_coords)=~Longitud+Latitud
+sub_coords@proj4string=CRS("+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0")
+
+estados=raster::shapefile("destdv250k_2gw.shp")
+
+map=tm_shape(estados, space.color="blue") +
+  tm_polygons(col="white") +
+  tm_shape(sub_coords) +
+  tm_bubbles(col="red", size="value") +
+  tmap::tm_facets(by="mes") +
+  tm_layout(legend.show = FALSE)
+
+print(map)
+
+
+```
+
+### Clasificacion de SKU
+
+```{r warning=FALSE, echo=FALSE, fig.width=10, fig.height=8}
+
+datos_pronos=read.csv("meses_modelo.csv")
+res.dist <- dist(datos_pronos[,-1], method = "euclidean")
+res.hc <- hclust(d = res.dist,method = "complete")
+
+fviz_dend(res.hc, k = 8, # Cut in four groups
+          cex = 0.5, # label size
+          color_labels_by_k = TRUE, # color labels by groups
+          rect = TRUE # Add rectangle around groups
+)
+
+```
+
+```{r, echo=FALSE, results='asis'}
+
+res.coph <- cophenetic(res.hc)
+C=cor(res.dist, res.coph)
+C=data.frame(C)
+names(C)[1]="Validacion del dendrograma"
+knitr::kable(head(C,34),align = 'c',row.names = FALSE, digits = 3,format.args = list(justify = "centre"))
+
+
+```
+
+### Porsentaje de Hectolitros vendidos por grupo
+
+```{r, echo=FALSE, results='asis', fig.width=5}
+########################################  Promedio por grupos
+
+res.hc$cluster=c(rep(1,2),rep(2,3),rep(3,6),rep(4,9),rep(5,118),rep(6,4),rep(7,1),rep(8,2))
+clus=data.frame(trat=res.hc$order,clus=res.hc$cluster)
+clus=clus[order(clus$trat),]
+
+mean_grup=aggregate(datos_pronos[,-1], by=list(cluster=clus$clus), mean)
+total_group=colSums(mean_grup[,-1])
+
+for(i in 1:nrow(mean_grup))
+{
+  mean_grup[i,-1]=round( (mean_grup[i,-1] *100)/total_group ,2)
+  
+}
+
+#colSums(mean_grup[,-1])
+
+knitr::kable(head(mean_grup,34),align = 'c',row.names = FALSE, digits = 3,format.args = list(justify = "centre"))
+
+```
+
+### Grafica
+
+```{r, echo=FALSE, results='asis', fig.width=5}
+
+graf=melt(mean_grup,id.vars = "cluster")
+
+
+ggplot(graf,aes(x=as.factor(cluster),y=value,fill=cluster))+
+  geom_bar(stat = "identity")+
+  facet_wrap(~variable)+
+  theme_bw()+
+  xlab("Agrupaciones")+
+  ylab("Porcentaje de venta pronosticada")+
+  theme(
+    panel.background = element_blank(),
+    panel.grid.minor = element_blank(), 
+    panel.grid.major = element_blank(),
+    axis.ticks.y = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position="none")+
+  theme(plot.title = element_text(lineheight=1,hjust = 0.5,size=18))+
+  theme( axis.text.x  = element_text(angle=0,vjust=0.0, size=13),
+         axis.text.y = element_text(size=13))
+
+```
+
+# Estrategia
+
+
+-Impulsar la venta de los SKU que menos se venden (resultado del cluster) especialmente en las subagencias donde mas se vende
+
+
+-Identificar subagencias que estan en zonas donde se venden mas hectolitros y hacer analisis mas profuno para detectar razones por 
+las cuales estas estan vendiendo menos
+
+
+-En la zonas donde se vende poco, implemenar pormociones en el mes de mayo (temporada de calor) para fomentar el consumo
+
+
+

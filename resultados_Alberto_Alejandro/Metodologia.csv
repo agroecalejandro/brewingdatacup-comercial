@@ -1,0 +1,6 @@
+"nombres_var","variables"
+"Error de febrero","21.1"
+"Error de mayo","1.6"
+"Herramientas utilizadas","Shapefile de division politica de México, INEGI"
+"Informacion externa utilizada","R, RStudio"
+"Transformacion de variables","Euclidean distance, Cluster"
