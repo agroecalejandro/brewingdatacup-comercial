@@ -133,9 +133,9 @@ for(i in 1:nrow(datos_suma))
 
 per=list()
 
-for( i in 1:length(datos_2))
+for( i in 1:length(datos_1))
 {
-  p<-periodogram(datos_2[[i]],plot=FALSE)
+  p<-periodogram(datos_1[[i]],plot=FALSE)
   per[[i]]=data.table(period=1/p$freq, spec=p$spec)[order(-spec)][1:2]
   
 }
